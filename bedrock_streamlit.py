@@ -80,14 +80,14 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
 
 def main():
     # App title
-    st.set_page_config(page_title="Bedrock-Claude 💬")
+    st.set_page_config(page_title="Bedrock-Claude 💬", page_icon='./utils/logo.png')
 
     with st.sidebar:
         col1, col2 = st.columns([1,3])
         with col1:
             st.image('./utils/logo.png')
         with col2:
-            st.title("AWS-Bedrock-Claude")
+            st.title("Bedrock-Claude")
 
         with st.expander('AWS Credentials', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', "", type="password")
