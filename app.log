@@ -1,0 +1,58 @@
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:34:57,034 - ERROR - A client error occurred: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:25,006 - ERROR - A client error occurred: Could not resolve the foundation model from the provided model identifier.
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:35:53,937 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row
+2024-03-12 19:36:18,510 - ERROR - A client error occurred: messages: roles must alternate between "user" and "assistant", but found multiple "user" roles in a row

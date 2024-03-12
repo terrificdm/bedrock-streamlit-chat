@@ -8,7 +8,11 @@ from botocore.exceptions import ClientError, NoCredentialsError
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler = logging.FileHandler('app.log')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 def images_process(image_file):
     image_string = base64.b64encode(image_file.read()).decode('utf8')
@@ -62,15 +66,15 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
         # Handle errors returned by the AWS service
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
-        print(f"AWS service returned an error: {error_code} - {error_message}")
+        logger.error(f"AWS service returned an error: {error_code} - {error_message}")
         raise
     except NoCredentialsError:
         # Handle the case where credentials are missing
-        print("Unable to retrieve AWS credentials, please check your credentials configuration.")
+        logger.error("Unable to retrieve AWS credentials, please check your credentials configuration.")
         raise
     except Exception as e:
         # Handle any other unknown exceptions
-        print(f"An unknown error occurred: {str(e)}")
+        logger.error(f"An unknown error occurred: {str(e)}")
         raise
     return bedrock_runtime
 
@@ -215,8 +219,10 @@ def main():
                 except ClientError as err:
                     message = err.response["Error"]["Message"]
                     logger.error("A client error occurred: %s", message)
-                    print("A client error occured: " + 
-                          format(message))
+                    st.error(f"A client error occurred: {message}")
+                except Exception as e:
+                    logger.error(f"An unknown error occurred: {str(e)}")
+                    st.error(f"An unknown error occurred: {str(e)}") 
 
 if __name__ == "__main__":
     main()
