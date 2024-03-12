@@ -5,7 +5,7 @@
 
 2. cd to the folder of repo  
 
-3. pip install -r requirements  
+3. pip install -r requirements.txt  
 
 4. streamlit run bedrock_streamlit.py  
 
