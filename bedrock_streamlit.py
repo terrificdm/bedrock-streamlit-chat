@@ -101,7 +101,7 @@ def main():
         with st.expander('System Prompt', expanded=False):
             system_prompt = st.text_area(
                 "System prompt", 
-                "You are an to be helpful, harmless, and honest AI assistant. "
+                "You are an helpful, harmless, and honest AI assistant. "
                 "Your goal is to provide informative and substantive responses to queries while avoiding potential harms.", 
                 label_visibility="collapsed"
             )
@@ -162,7 +162,7 @@ def main():
             st.rerun()
 
     with st.chat_message("assistant", avatar="./utils/assistant.png"):
-        st.write("I am an AI chatbot powered by Amazon Bedrock Claude, What can I do for you？💬")
+        st.write("I am an AI chatbot powered by Amazon Bedrock Claude, what can I do for you？💬")
 
     # Initialize chat history
     if "messages" not in st.session_state:
