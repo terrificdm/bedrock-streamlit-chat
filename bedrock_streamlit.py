@@ -101,7 +101,7 @@ def main():
         with st.expander('System Prompt', expanded=False):
             system_prompt = st.text_area(
                 "System prompt", 
-                "You are an helpful, harmless, and honest AI assistant. "
+                "You are a helpful, harmless, and honest AI assistant. "
                 "Your goal is to provide informative and substantive responses to queries while avoiding potential harms.", 
                 label_visibility="collapsed"
             )
