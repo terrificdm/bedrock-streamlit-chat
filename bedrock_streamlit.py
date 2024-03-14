@@ -1,3 +1,4 @@
+import os
 import json
 import base64
 import logging
@@ -45,12 +46,6 @@ def stream_multi_modal_prompt(bedrock_runtime, model_id, system_message, message
         #     print(f"Stop sequence: {chunk['delta']['stop_sequence']}")
         #     print(f"Output tokens: {chunk['usage']['output_tokens']}")
 
-# def clear_history():
-#     st.session_state.messages = []
-#     st.empty()
-#     st.session_state["file_uploader_key"] += 1
-#     st.rerun()
-
 def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_region=None):
     try:
         if aws_access_key and aws_secret_key and aws_region:
@@ -88,11 +83,26 @@ def main():
             st.image('./utils/logo.png')
         with col2:
             st.title("Bedrock-Claude-Chat")
-
+        
         with st.expander('AWS Credentials', expanded=False):
-            aws_access_key = st.text_input('AWS Access Key', "", type="password")
-            aws_secret_key = st.text_input('AWS Secret Key', "", type="password")
-            aws_region = st.text_input('AWS Region', "")
+            aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
+            aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
+            aws_region = st.text_input('AWS Region', os.environ.get('AWS_REGION', ""))
+
+            credentials_changed = (
+                aws_access_key != os.environ.get('AWS_ACCESS_KEY_ID', "") or
+                aws_secret_key != os.environ.get('AWS_SECRET_ACCESS_KEY', "") or
+                aws_region != os.environ.get('AWS_REGION', "")
+            )
+
+            if st.button('Update AWS Credentials', disabled=not credentials_changed):
+                if aws_access_key == "" or aws_secret_key == "" or aws_region == "":
+                    st.warning("Please fill in all the AWS credential fields.")
+                else:
+                    st.success("AWS credentials are updated successfully!")
+                    os.environ['AWS_ACCESS_KEY_ID'] = aws_access_key
+                    os.environ['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
+                    os.environ['AWS_REGION'] = aws_region
 
         model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), label_visibility="collapsed")
         model_id = {
@@ -159,7 +169,7 @@ def main():
         else:
             image = st.file_uploader("Upload images", help='Claude-V3 only', disabled=True)
     
-        # st.sidebar.button("Clear history", type="primary", on_click=clear_history)
+        # Clear messages, including uploaded images
         if st.sidebar.button("New Conversation", type="primary"):
             st.session_state.messages = []
             st.empty()
@@ -208,7 +218,10 @@ def main():
         with st.chat_message("assistant", avatar="./utils/assistant.png"):
             system_message = system_prompt
             messages = st.session_state.messages
-            bedrock_runtime = get_bedrock_runtime_client(aws_access_key, aws_secret_key, aws_region)
+            bedrock_runtime = get_bedrock_runtime_client(
+                aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID', ""), 
+                aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY', ""), 
+                aws_region=os.environ.get('AWS_REGION', ""))
             with st.spinner('Thinking...'):
                 try:
                     response= st.write_stream(stream_multi_modal_prompt(
