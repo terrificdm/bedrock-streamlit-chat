@@ -80,26 +80,27 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
 
 def main():
     # App title
-    st.set_page_config(page_title="Bedrock-Claude 💬", page_icon='./utils/logo.png')
+    st.set_page_config(page_title="Bedrock-Claude-Chat 💬", page_icon='./utils/logo.png')
 
     with st.sidebar:
-        col1, col2 = st.columns([1,3])
+        col1, col2 = st.columns([1,3.5])
         with col1:
             st.image('./utils/logo.png')
         with col2:
-            st.title("Bedrock-Claude")
+            st.title("Bedrock-Claude-Chat")
 
         with st.expander('AWS Credentials', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', "", type="password")
             aws_secret_key = st.text_input('AWS Secret Key', "", type="password")
             aws_region = st.text_input('AWS Region', "")
 
-        model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), label_visibility="collapsed")
+        model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), label_visibility="collapsed")
         model_id = {
             'Anthropic Claude-V2': 'anthropic.claude-v2',
             'Anthropic Claude-V2.1': 'anthropic.claude-v2:1',
             'Anthropic Claude-Instant-V1.2': 'anthropic.claude-instant-v1',
-            'Anthropic Claude-V3': 'anthropic.claude-3-sonnet-20240229-v1:0'
+            'Anthropic Claude-V3-Haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
+            'Anthropic Claude-V3-Sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
         }.get(model_id, model_id)
 
         with st.expander('System Prompt', expanded=False):
@@ -159,7 +160,7 @@ def main():
             image = st.file_uploader("Upload images", help='Claude-V3 only', disabled=True)
     
         # st.sidebar.button("Clear history", type="primary", on_click=clear_history)
-        if st.sidebar.button("Clear history", type="primary"):
+        if st.sidebar.button("New Conversation", type="primary"):
             st.session_state.messages = []
             st.empty()
             st.session_state["file_uploader_key"] += 1
