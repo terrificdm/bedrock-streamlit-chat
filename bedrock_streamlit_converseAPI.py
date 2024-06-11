@@ -15,36 +15,37 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-def images_process(image_file):
-    image_string = base64.b64encode(image_file.read()).decode('utf8')
-    return image_string
+# def images_process(image_file):
+#     image_string = base64.b64encode(image_file.read()).decode('utf8')
+#     return image_string
 
 def image_update():
     st.session_state.image_update = True
 
 def stream_multi_modal_prompt(bedrock_runtime, model_id, system_message, messages, max_tokens, temperature, top_p, top_k):
-    body = json.dumps({
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": max_tokens,
-        "system":  system_message,
+    inference_config = {
+        "maxTokens": max_tokens,
         "temperature": temperature,
-        "top_p": top_p,
-        "top_k": top_k,
-        "messages": messages
-    })
+        "topP": top_p
+    }
+    additional_model_fields = {"top_k": top_k}
 
-    response = bedrock_runtime.invoke_model_with_response_stream(body=body, modelId=model_id)
+    try:
+        response = bedrock_runtime.converse_stream(
+            modelId=model_id,
+            messages=messages,
+            system=[{"text": system_message}],
+            inferenceConfig=inference_config,
+            additionalModelRequestFields=additional_model_fields
+        )
 
-    for event in response.get("body"):
-        chunk = json.loads(event["chunk"]["bytes"])
-        if chunk['type'] == 'content_block_delta':
-            if chunk['delta']['type'] == 'text_delta':
-                yield chunk['delta']['text']
-                # print(chunk['delta']['text'], end="")
-        # if chunk['type'] == 'message_delta':
-        #     print(f"\nStop reason: {chunk['delta']['stop_reason']}")
-        #     print(f"Stop sequence: {chunk['delta']['stop_sequence']}")
-        #     print(f"Output tokens: {chunk['usage']['output_tokens']}")
+        for chunk in response["stream"]:
+            if "contentBlockDelta" in chunk:
+                text = chunk["contentBlockDelta"]["delta"]["text"]
+                yield text
+    except (ClientError, Exception) as e:
+        logger.error(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
+        raise
 
 def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_region=None):
     try:
@@ -165,7 +166,10 @@ def main():
             image_list = []
             for item in image:
                 st.image(item, caption=item.name)
-                image_list.append({"type": "image", "source": {"type": "base64", "media_type": item.type, "data": images_process(item)}})
+                # image_list.append({"type": "image", "source": {"type": "base64", "media_type": item.type, "data": images_process(item)}})
+                item_type = item.type.split('/')[-1]
+                # item_type = item_type[-1]
+                image_list.append({"image": {"format": item_type, "source": {"bytes": item.read()}}})
         else:
             image = st.file_uploader("Upload images", help='Claude-V3 only', disabled=True)
     
@@ -195,8 +199,8 @@ def main():
         else:
             with st.chat_message(message["role"], avatar="./utils/user.png"):
                 for item in message["content"]:
-                    if item["type"] == "image":
-                        image_data = base64.b64decode(item["source"]["data"].encode('utf8'))
+                    if "image" in item:
+                        image_data = item["image"]["source"]["bytes"]
                         st.image(image_data, width=50)
                     else:
                         st.markdown(item["text"])
@@ -212,7 +216,7 @@ def main():
             st.session_state.image_update = False
             st.markdown(query)
         # Add user message to chat history
-        user_content.append({"type": "text", "text": query})
+        user_content.append({"text": query})
         st.session_state.messages.append({"role": "user", "content": user_content})
         # Display assistant response in chat message container
         with st.chat_message("assistant", avatar="./utils/assistant.png"):
@@ -228,7 +232,7 @@ def main():
                         bedrock_runtime, model_id, system_message, messages, max_new_tokens, temperature, top_p, top_k
                         )
                     )
-                    assistant_content = [{"type": "text", "text": response}]
+                    assistant_content = [{"text": response}]
                     st.session_state.messages.append({"role": "assistant", "content": assistant_content})
                 except ClientError as err:
                     message = err.response["Error"]["Message"]
