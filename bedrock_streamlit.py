@@ -126,7 +126,7 @@ def main():
                 min_value=10,
                 max_value=4096,
                 step=10,
-                value=1024,
+                value=2048,
                 label="Number of tokens to generate",
                 key="max_new_token"
             )
