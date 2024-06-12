@@ -15,12 +15,11 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# def images_process(image_file):
-#     image_string = base64.b64encode(image_file.read()).decode('utf8')
-#     return image_string
-
 def image_update():
     st.session_state.image_update = True
+
+def allow_input_disable():
+    st.session_state.allow_input = False
 
 def stream_multi_modal_prompt(bedrock_runtime, model_id, system_message, messages, max_tokens, temperature, top_p, top_k):
     inference_config = {
@@ -176,6 +175,7 @@ def main():
         # Clear messages, including uploaded images
         if st.sidebar.button("New Conversation", type="primary"):
             st.session_state.messages = []
+            st.session_state.allow_input = True
             st.empty()
             st.session_state["file_uploader_key"] += 1
             st.rerun()
@@ -205,7 +205,10 @@ def main():
                     else:
                         st.markdown(item["text"])
 
-    if query := st.chat_input("Input your message..."):
+    if "allow_input" not in st.session_state:
+        st.session_state.allow_input = True
+
+    if query := st.chat_input("Input your message...", disabled=not st.session_state.allow_input, on_submit=allow_input_disable):
         # Display user message in chat message container
         with st.chat_message("user", avatar="./utils/user.png"):
             user_content = []
@@ -240,7 +243,10 @@ def main():
                     st.error(f"A client error occurred: {message}")
                 except Exception as e:
                     logger.error(f"An unknown error occurred: {str(e)}")
-                    st.error(f"An unknown error occurred: {str(e)}") 
-
+                    st.error(f"An unknown error occurred: {str(e)}")
+                finally:
+                    st.session_state.allow_input = True
+                    st.rerun()
+            
 if __name__ == "__main__":
     main()
