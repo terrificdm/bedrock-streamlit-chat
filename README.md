@@ -10,7 +10,7 @@ You need to get a valid authority for accessing Amazon Bedrock Claude model
 
 3. pip install -r requirements.txt  
 
-4. streamlit run bedrock_streamlit.py  
+4. streamlit run bedrock_streamlit_converseAPI.py  
 
 ### Note:  
 > The default credentials for App will be [environment variables](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#environment-variables) or [shared credentials file](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#shared-credentials-file), which are same with credentials for boto3 SDK. Besides, you can also provide your own AKSK with region info via App.  
