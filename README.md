@@ -19,4 +19,5 @@ You need to get a valid authority for accessing Amazon Bedrock Claude model
 
 
 ### App screenshot:
+Chat with images and chat with documents
 ![screenshot](./utils/app-screenshot.png)
