@@ -16,6 +16,9 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
+
+# The default credential is admin/123qaz, you can set those with your own at .streamlit/secrets.toml
+
 def check_password():
     """Returns `True` if the user had a correct password."""
 
