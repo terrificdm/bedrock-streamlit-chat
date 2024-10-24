@@ -56,7 +56,7 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
                 region_name=aws_region
             )
         else:
-            bedrock_runtime = boto3.client('bedrock-runtime')
+            bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     except ClientError as e:
         # Handle errors returned by the AWS service
         error_code = e.response['Error']['Code']
@@ -77,6 +77,9 @@ def main():
     # App title
     st.set_page_config(page_title="Bedrock-Claude-Chat 💬", page_icon='./utils/logo.png')
 
+    # Set AWS default region to 'us-west-2' in order to use Claude 3.5 Sonnetv2
+    os.environ['AWS_REGION'] = 'us-west-2'
+
     with st.sidebar:
         col1, col2 = st.columns([1,3.5])
         with col1:
@@ -84,7 +87,7 @@ def main():
         with col2:
             st.title("Bedrock-Claude-Chat")
         
-        with st.expander('AWS Credentials', expanded=False):
+        with st.expander('AWS Credentials & Region', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
             aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
             aws_region = st.text_input('AWS Region', os.environ.get('AWS_REGION', ""))
@@ -97,20 +100,22 @@ def main():
 
             if st.button('Update AWS Credentials', disabled=not credentials_changed):
                 if aws_access_key == "" or aws_secret_key == "" or aws_region == "":
-                    st.warning("Please fill in all the AWS credential fields.")
+                    st.warning("Please fill out all the AWS credential fields.")
                 else:
                     st.success("AWS credentials are updated successfully!")
                     os.environ['AWS_ACCESS_KEY_ID'] = aws_access_key
                     os.environ['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
                     os.environ['AWS_REGION'] = aws_region
 
-        model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), index=1, label_visibility="collapsed")
+        model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V3.5-Sonnet', 'Anthropic Claude-V3.5-Sonnet-v2', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), index=3, label_visibility="collapsed")
         model_id = {
             'Anthropic Claude-V2': 'anthropic.claude-v2',
             'Anthropic Claude-V2.1': 'anthropic.claude-v2:1',
             'Anthropic Claude-Instant-V1.2': 'anthropic.claude-instant-v1',
             'Anthropic Claude-V3-Haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
             'Anthropic Claude-V3-Sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
+            'Anthropic Claude-V3.5-Sonnet': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+            'Anthropic Claude-V3.5-Sonnet-v2': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
         }.get(model_id, model_id)
 
         with st.expander('System Prompt', expanded=False):
@@ -249,10 +254,12 @@ def main():
         with st.chat_message("assistant", avatar="./utils/assistant.png"):
             system_message = system_prompt
             messages = st.session_state.messages
+
             bedrock_runtime = get_bedrock_runtime_client(
                 aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID', ""), 
                 aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY', ""), 
                 aws_region=os.environ.get('AWS_REGION', ""))
+            
             with st.spinner('Thinking...'):
                 try:
                     response= st.write_stream(stream_multi_modal_prompt(
