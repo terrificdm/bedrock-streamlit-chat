@@ -88,14 +88,14 @@ def main():
         with col2:
             st.title("Bedrock-Claude-Chat")
 
-        model_id = st.selectbox('Choose a Model', ('Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V3.5-Sonnet', 'Anthropic Claude-V3.5-Sonnet-v2'), index=5, label_visibility="collapsed")
+        model_id = st.selectbox('Choose a Model', ('Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3-Sonnet', 'Anthropic Claude-V3.5-Sonnet', 'Anthropic Claude-3.5-Sonnet-v2'), index=5, label_visibility="collapsed")
         model_id = {
             'Amazon Nova Lite': 'amazon.nova-lite-v1:0',
             'Amazon Nova Pro': 'amazon.nova-pro-v1:0',
-            'Anthropic Claude-V3-Haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
-            'Anthropic Claude-V3-Sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
-            'Anthropic Claude-V3.5-Sonnet': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
-            'Anthropic Claude-V3.5-Sonnet-v2': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+            'Anthropic Claude-3-Haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
+            'Anthropic Claude-3-Sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
+            'Anthropic Claude-3.5-Sonnet': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+            'Anthropic Claude-3.5-Sonnet-v2': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
         }.get(model_id, model_id)
 
         aws_region = st.selectbox('Choose a Region', ('us-east-1', 'us-west-2'), index=1, label_visibility="collapsed")
