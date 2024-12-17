@@ -4,4 +4,4 @@ backgroundColor="#282a36"
 secondaryBackgroundColor="#44475a"
 textColor="#f8f8f2"
 [server]
-maxUploadSize = 5
+maxUploadSize = 25

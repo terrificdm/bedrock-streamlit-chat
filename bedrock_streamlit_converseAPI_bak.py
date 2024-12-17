@@ -15,47 +15,6 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-image_types = {'gif', 'jpg', 'jpeg', 'png', 'webp'}
-document_types = {'pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'html', 'txt', 'md'}
-video_types = {'mov', 'mkv', 'mp4', 'webm', 'flv', 'mpeg', 'mpg', 'wmv', 'three_gp'}
-
-video_size_limit = 25 * 1024 * 1024  # 25MB
-document_size_limit = 4.5 * 1024 * 1024  # 4.5MB 
-image_size_limit = 4.5 * 1024 * 1024  # 4.5MB
-
-def initialize_session_state():
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    if "file_uploader_key" not in st.session_state:
-        st.session_state.file_uploader_key = 0
-
-    # Initialize image track recorder
-    if "file_update" not in st.session_state:
-        st.session_state.file_update = False
-        
-    if "allow_input" not in st.session_state:
-        st.session_state.allow_input = True
-
-def check_file_size(file, file_type):
-    """
-    Check if file size is within limits
-    Returns (is_valid, message)
-    """
-    file_size = len(file.getvalue())
-
-    if file_type in image_types:
-        if file_size > image_size_limit:
-            return False, f"Image file '{file.name}' exceeds 4.5MB per file limit"
-    elif file_type in document_types:
-        if file_size > document_size_limit:
-            return False, f"Document file '{file.name}' exceeds 4.5MB per file limit"
-    elif file_type in video_types:
-        if file_size > video_size_limit:
-            return False, f"Video file '{file.name}' exceeds 25MB per file limit"
-    return True, ""
-
 def file_update():
     st.session_state.file_update = True
 
@@ -119,8 +78,6 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
     return bedrock_runtime
 
 def main():
-    initialize_session_state()
-
     # App title
     st.set_page_config(page_title="Bedrock-Claude-Chat 💬", page_icon='./utils/logo.png')
 
@@ -142,11 +99,7 @@ def main():
         }.get(model_id, model_id)
 
         aws_region = st.selectbox('Choose a Region', ('us-east-1', 'us-west-2'), index=1, label_visibility="collapsed")
-        if aws_region:
-            os.environ['AWS_REGION'] = aws_region
-        else:
-            st.error("Please select a valid AWS region")
-            return
+        os.environ['AWS_REGION'] = aws_region
 
         with st.expander('AWS Credentials', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
@@ -176,9 +129,9 @@ def main():
         with st.expander('Model Parameters', expanded=False):
             max_new_tokens= st.number_input(
                 min_value=10,
-                max_value=5000,
+                max_value=4096,
                 step=10,
-                value=4096,
+                value=2048,
                 label="Number of tokens to generate",
                 key="max_new_token"
             )
@@ -208,33 +161,25 @@ def main():
                     label="Top K",
                     key="top_k"
                 )
+
+        if "file_uploader_key" not in st.session_state:
+            st.session_state["file_uploader_key"] = 0
             
-        if "claude-3" in model_id or "nova" in model_id:
+        if "claude-3" or "nova" in model_id:
             file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Claude-V3 only', disabled=False)
             file_list = []
 
-            for item in file:
-                item_type = item.name.split('.')[-1].lower()
+            image_types = {'gif', 'jpg', 'jpeg', 'png', 'webp'}
+            document_types = {'pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'html', 'txt', 'md'}
 
-                # Check file size
-                is_valid_size, error_message = check_file_size(item, item_type)
-                if not is_valid_size:
-                    st.error(error_message)
-                    return None
-                
+            for item in file:
+                item_type = item.name.split('.')[-1]
                 if item_type in image_types:
                     item_type = 'jpeg' if item_type == 'jpg' else item_type
                     st.image(item, caption=item.name)
                     file_list.append({"image": {"format": item_type, "source": {"bytes": item.getvalue()}}})
                 elif item_type in document_types:
                     file_list.append({"document": {"format": item_type, "name": item.name.split(".")[0], "source": {"bytes": item.getvalue()}}})
-                elif item_type in video_types:
-                    if "nova" in model_id:
-                        st.video(item)
-                        file_list.append({"video": {"format": item_type, "source": {"bytes": item.getvalue()}}})
-                    else:
-                        st.error(f"Video files are only supported by Nova series models. Please remove {item.name}")
-                        return None
                 else:
                     st.write(f"Unsupported file type: {item_type}, please remove the file!")
                     return None
@@ -252,6 +197,14 @@ def main():
     with st.chat_message("assistant", avatar="./utils/assistant.png"):
         st.write("I am an AI chatbot powered by Amazon Bedrock Claude, what can I do for you？💬")
 
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Initialize image track recorder
+    if "file_update" not in st.session_state:
+        st.session_state.file_update = False
+
     # Display chat messages from history on app rerun
     for message in st.session_state.messages:
         if message["role"] == "assistant":
@@ -261,7 +214,8 @@ def main():
             with st.chat_message(message["role"], avatar="./utils/user.png"):
                 for item in message["content"]:
                     if "image" in item:
-                        st.image(item["image"]["source"]["bytes"], width=50)
+                        image_data = item["image"]["source"]["bytes"]
+                        st.image(image_data, width=50)
                     elif "document" in item:
                         col1, col2 = st.columns([0.45,8])
                         with col1:
@@ -269,12 +223,11 @@ def main():
                         with col2:
                             document_full = item["document"]["name"]+"."+item["document"]["format"]
                             st.markdown(document_full)
-                    elif "video" in item:
-                        col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
-                        with col1:
-                            st.video(item["video"]["source"]["bytes"])
                     else:
                         st.markdown(item["text"])
+
+    if "allow_input" not in st.session_state:
+        st.session_state.allow_input = True
 
     if query := st.chat_input("Input your message...", disabled=not st.session_state.allow_input, on_submit=allow_input_disable):
         # Display user message in chat message container
@@ -282,13 +235,9 @@ def main():
             user_content = []
             if st.session_state.file_update:
                 for item in file:
-                    item_type = item.name.split('.')[-1].lower()
+                    item_type = item.name.split('.')[-1]
                     if item_type in image_types:
                         st.image(item, width=50)
-                    elif item_type in video_types:
-                        col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
-                        with col1:
-                            st.video(item)
                     else:
                         col1, col2 = st.columns([0.45,8])
                         with col1:
@@ -317,9 +266,6 @@ def main():
                         bedrock_runtime, model_id, system_message, messages, max_new_tokens, temperature, top_p, top_k
                         )
                     )
-                    if not response:
-                         st.error("No response received from the model")
-                         return
                     assistant_content = [{"text": response}]
                     st.session_state.messages.append({"role": "assistant", "content": assistant_content})
                 except ClientError as err:
