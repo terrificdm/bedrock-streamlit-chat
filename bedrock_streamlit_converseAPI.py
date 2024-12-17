@@ -27,7 +27,11 @@ def stream_multi_modal_prompt(bedrock_runtime, model_id, system_message, message
         "temperature": temperature,
         "topP": top_p
     }
-    additional_model_fields = {"top_k": top_k}
+
+    if "nova" in model_id:
+        additional_model_fields = {"inferenceConfig": {"top_k": top_k}}
+    else:
+        additional_model_fields = {"top_k": top_k}
 
     try:
         response = bedrock_runtime.converse_stream(
@@ -77,46 +81,42 @@ def main():
     # App title
     st.set_page_config(page_title="Bedrock-Claude-Chat 💬", page_icon='./utils/logo.png')
 
-    # Set AWS default region to 'us-west-2' in order to use Claude 3.5 Sonnetv2
-    os.environ['AWS_REGION'] = 'us-west-2'
-
     with st.sidebar:
         col1, col2 = st.columns([1,3.5])
         with col1:
             st.image('./utils/logo.png')
         with col2:
             st.title("Bedrock-Claude-Chat")
-        
-        with st.expander('AWS Credentials & Region', expanded=False):
-            aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
-            aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
-            aws_region = st.text_input('AWS Region', os.environ.get('AWS_REGION', ""))
 
-            credentials_changed = (
-                aws_access_key != os.environ.get('AWS_ACCESS_KEY_ID', "") or
-                aws_secret_key != os.environ.get('AWS_SECRET_ACCESS_KEY', "") or
-                aws_region != os.environ.get('AWS_REGION', "")
-            )
-
-            if st.button('Update AWS Credentials', disabled=not credentials_changed):
-                if aws_access_key == "" or aws_secret_key == "" or aws_region == "":
-                    st.warning("Please fill out all the AWS credential fields.")
-                else:
-                    st.success("AWS credentials are updated successfully!")
-                    os.environ['AWS_ACCESS_KEY_ID'] = aws_access_key
-                    os.environ['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
-                    os.environ['AWS_REGION'] = aws_region
-
-        model_id = st.selectbox('Choose a Model', ('Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V3.5-Sonnet', 'Anthropic Claude-V3.5-Sonnet-v2', 'Anthropic Claude-V2.1', 'Anthropic Claude-V2', 'Anthropic Claude-Instant-V1.2'), index=3, label_visibility="collapsed")
+        model_id = st.selectbox('Choose a Model', ('Amazon Nova Pro', 'Amazon Nova Lite', 'Anthropic Claude-V3-Haiku', 'Anthropic Claude-V3-Sonnet', 'Anthropic Claude-V3.5-Sonnet', 'Anthropic Claude-V3.5-Sonnet-v2'), index=4, label_visibility="collapsed")
         model_id = {
-            'Anthropic Claude-V2': 'anthropic.claude-v2',
-            'Anthropic Claude-V2.1': 'anthropic.claude-v2:1',
-            'Anthropic Claude-Instant-V1.2': 'anthropic.claude-instant-v1',
+            'Amazon Nova Pro': 'amazon.nova-pro-v1:0',
+            'Amazon Nova Lite': 'amazon.nova-lite-v1:0',
             'Anthropic Claude-V3-Haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
             'Anthropic Claude-V3-Sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
             'Anthropic Claude-V3.5-Sonnet': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
             'Anthropic Claude-V3.5-Sonnet-v2': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
         }.get(model_id, model_id)
+
+        aws_region = st.selectbox('Choose a Region', ('us-east-1', 'us-west-2'), index=1, label_visibility="collapsed")
+        os.environ['AWS_REGION'] = aws_region
+
+        with st.expander('AWS Credentials', expanded=False):
+            aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
+            aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
+            
+            credentials_changed = (
+                aws_access_key != os.environ.get('AWS_ACCESS_KEY_ID', "") or
+                aws_secret_key != os.environ.get('AWS_SECRET_ACCESS_KEY', "")
+            )
+
+            if st.button('Update AWS Credentials', disabled=not credentials_changed):
+                if aws_access_key == "" or aws_secret_key == "":
+                    st.warning("Please fill out all the AWS credential fields.")
+                else:
+                    st.success("AWS credentials are updated successfully!")
+                    os.environ['AWS_ACCESS_KEY_ID'] = aws_access_key
+                    os.environ['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
 
         with st.expander('System Prompt', expanded=False):
             system_prompt = st.text_area(
@@ -165,7 +165,7 @@ def main():
         if "file_uploader_key" not in st.session_state:
             st.session_state["file_uploader_key"] = 0
             
-        if "claude-3" in model_id:
+        if "claude-3" or "nova" in model_id:
             file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Claude-V3 only', disabled=False)
             file_list = []
 
