@@ -89,6 +89,7 @@ def stream_multi_modal_prompt(bedrock_runtime, model_id, system_message, message
                 yield text
     except (ClientError, Exception) as e:
         logger.error(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
+        st.error(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
         raise
 
 def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_region=None):
@@ -107,14 +108,17 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
         logger.error(f"AWS service returned an error: {error_code} - {error_message}")
+        st.error(f"AWS service returned an error: {error_code} - {error_message}")
         raise
     except NoCredentialsError:
         # Handle the case where credentials are missing
         logger.error("Unable to retrieve AWS credentials, please check your credentials configuration.")
+        st.error("Unable to retrieve AWS credentials, please check your credentials configuration.")
         raise
     except Exception as e:
         # Handle any other unknown exceptions
         logger.error(f"An unknown error occurred: {str(e)}")
+        st.error(f"An unknown error occurred: {str(e)}")
         raise
     return bedrock_runtime
 
@@ -319,16 +323,18 @@ def main():
                     )
                     if not response:
                          st.error("No response received from the model")
-                         return
+                         st.stop()
                     assistant_content = [{"text": response}]
                     st.session_state.messages.append({"role": "assistant", "content": assistant_content})
                 except ClientError as err:
                     message = err.response["Error"]["Message"]
                     logger.error("A client error occurred: %s", message)
                     st.error(f"A client error occurred: {message}")
+                    st.stop()
                 except Exception as e:
                     logger.error(f"An unknown error occurred: {str(e)}")
                     st.error(f"An unknown error occurred: {str(e)}")
+                    st.stop()
                 finally:
                     st.session_state.allow_input = True
                     st.rerun()
