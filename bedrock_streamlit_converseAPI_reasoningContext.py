@@ -202,14 +202,14 @@ def main():
     initialize_session_state()
 
     # App title
-    st.set_page_config(page_title="Bedrock-Claude-Chat 💬", page_icon='./utils/logo.png')
+    st.set_page_config(page_title="Bedrock-Streamlit-Chat 💬", page_icon='./utils/logo.png')
 
     with st.sidebar:
         col1, col2 = st.columns([1,3.5])
         with col1:
             st.image('./utils/logo.png')
         with col2:
-            st.title("Streamlit-Bedrock-Chat")
+            st.title("Bedrock-Streamlit-Chat")
 
         model_id = st.selectbox('Choose a Model', ('Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3.5-Sonnet-v2','Anthropic Claude-3.7-Sonnet'), index=4, label_visibility="collapsed")
         model_id = {
