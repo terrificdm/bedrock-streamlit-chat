@@ -1,7 +1,7 @@
-# Streamlit App for AWS Bedrock Claude  
+# Streamlit App for AWS Bedrock foundation models  
 
 ### Prerequisite:
-You need to get a valid authority for accessing Amazon Bedrock Claude model
+You need to get a valid authority for accessing Amazon Bedrock foundation models
 
 ### How to use:  
 1. git clone the repo  
@@ -13,7 +13,7 @@ You need to get a valid authority for accessing Amazon Bedrock Claude model
 4. streamlit run bedrock_streamlit_converseAPI.py  
 
 ### Note:  
-* Choose us-west-2 for using Anthropic Claude 3.5 Sonnet v2, and choose us-east-1 for using Amazon Nova series of models.
+* Use Bedrock cross-region(US based regions) inference profile, you need to enable accessibility of models in US regions first.  
 
 * Support image, document, video(Nova only) understanding.  
 

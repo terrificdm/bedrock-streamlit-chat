@@ -4,9 +4,10 @@ import base64
 import logging
 import boto3
 import streamlit as st
+import re
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from botocore.exceptions import ClientError, NoCredentialsError
 
 
@@ -42,13 +43,17 @@ def initialize_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # Initialize chat history without reasoning part
+    if "model_messages" not in st.session_state:
+        st.session_state.model_messages = []
+
     if "file_uploader_key" not in st.session_state:
         st.session_state.file_uploader_key = 0
 
     # Initialize image track recorder
     if "file_update" not in st.session_state:
         st.session_state.file_update = False
-        
+
     if "allow_input" not in st.session_state:
         st.session_state.allow_input = True
 
@@ -82,7 +87,7 @@ def allow_input_disable():
 def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
     inference_config = {"maxTokens": config.max_tokens,}
     additional_model_fields = {}
-    
+
     if config.enable_reasoning and "claude-3-7-sonnet" in config.model_id:
         additional_model_fields = {
             "thinking": {
@@ -110,13 +115,14 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
         )
 
         in_reasoning_block = False
-        
+        actual_response_text = ""  # Store actual response text (excluding reasoning part)
+
         for chunk in response["stream"]:
             if "contentBlockDelta" not in chunk:
                 continue
 
             delta = chunk["contentBlockDelta"]["delta"]
-    
+
             if "reasoningContent" in delta and "text" in delta["reasoningContent"]:
                 reasoning_text = delta["reasoningContent"]["text"]
                 if not in_reasoning_block:
@@ -126,15 +132,22 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
 
             elif "text" in delta:
                 text = delta["text"]
+                actual_response_text += text  # Collect actual response text without reasoning part
+
                 if in_reasoning_block:
                     yield "\n\n----------------\n"
                     in_reasoning_block = False
                 yield text
 
+        stream_multi_modal_prompt.actual_response = actual_response_text  # Save actual response text to function attribute
+
     except (ClientError, Exception) as e:
         logger.error(f"ERROR: Can't invoke '{config.model_id}'. Reason: {e}")
         st.error(f"ERROR: Can't invoke '{config.model_id}'. Reason: {e}")
         raise
+
+# Reset actual_response attribute of stream_multi_modal_prompt function
+stream_multi_modal_prompt.actual_response = ""
 
 def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_region=None):
     try:
@@ -166,6 +179,25 @@ def get_bedrock_runtime_client(aws_access_key=None, aws_secret_key=None, aws_reg
         raise
     return bedrock_runtime
 
+def extract_non_reasoning_content(message_content):
+    if isinstance(message_content, list) and len(message_content) > 0 and "text" in message_content[0]:
+        text = message_content[0]["text"]
+        clean_text = re.sub(r'----------------\n(.*?)\n\n----------------\n', '', text, flags=re.DOTALL)
+        return [{"text": clean_text}]
+    return message_content
+
+def create_model_messages(messages):
+    model_messages = []
+    for msg in messages:
+        if msg["role"] == "assistant":
+            model_messages.append({
+                "role": msg["role"],
+                "content": extract_non_reasoning_content(msg["content"])
+            })
+        else:
+            model_messages.append(msg)
+    return model_messages
+
 def main():
     initialize_session_state()
 
@@ -186,7 +218,7 @@ def main():
             'Anthropic Claude-3-Haiku': 'us.anthropic.claude-3-haiku-20240307-v1:0',
             'Anthropic Claude-3.5-Sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
             'Anthropic Claude-3.7-Sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-            
+
         }.get(model_id, model_id)
 
         is_claude_37 = "claude-3-7-sonnet" in model_id
@@ -206,7 +238,7 @@ def main():
         with st.expander('AWS Credentials', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
             aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
-            
+
             credentials_changed = (
                 aws_access_key != os.environ.get('AWS_ACCESS_KEY_ID', "") or
                 aws_secret_key != os.environ.get('AWS_SECRET_ACCESS_KEY', "")
@@ -282,7 +314,7 @@ def main():
                     key="top_k",
                     disabled=params_disabled
                 )
-            
+
         if "claude-3" in model_id or "nova" in model_id:
             file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support Cluade nad Nova models', disabled=False)
             file_list = []
@@ -295,7 +327,7 @@ def main():
                 if not is_valid_size:
                     st.error(error_message)
                     return None
-                
+
                 if item_type in image_types:
                     item_type = 'jpeg' if item_type == 'jpg' else item_type
                     st.image(item, caption=item.name)
@@ -314,10 +346,11 @@ def main():
                     return None
         else:
             file = st.file_uploader("File Query", help='Claude-V3 only', disabled=True)
-    
+
         # Clear messages, including uploaded images
         if st.sidebar.button("New Conversation", type="primary"):
             st.session_state.messages = []
+            st.session_state.model_messages = []
             st.session_state.allow_input = True
             st.empty()
             st.session_state["file_uploader_key"] += 1
@@ -374,16 +407,20 @@ def main():
             st.markdown(query)
         # Add user message to chat history
         user_content.append({"text": query})
-        st.session_state.messages.append({"role": "user", "content": user_content})
+        user_message = {"role": "user", "content": user_content}
+        st.session_state.messages.append(user_message)
+
         # Display assistant response in chat message container
         with st.chat_message("assistant", avatar="./utils/assistant.png"):
             system_message = system_prompt
-            messages = st.session_state.messages
+
+            # Create model messages without reasoning part
+            model_messages = create_model_messages(st.session_state.messages)
 
             model_config = ModelConfig(
                 model_id=model_id,
                 system_message=system_message,
-                messages=messages,
+                messages=model_messages,  # Use model_messages without reasoning part
                 max_tokens=max_new_tokens,
                 budget_tokens=budget_tokens,
                 temperature=temperature if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
@@ -396,15 +433,20 @@ def main():
                 aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID', ""), 
                 aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY', ""), 
                 aws_region=os.environ.get('AWS_REGION', ""))
-            
+
             with st.spinner('Thinking...'):
                 try:
-                    response= st.write_stream(
+                    # Reset actual_response attribute of stream_multi_modal_prompt function
+                    stream_multi_modal_prompt.actual_response = ""
+
+                    response = st.write_stream(
                         stream_multi_modal_prompt(bedrock_runtime, model_config)
                     )
+
                     if not response:
                          st.error("No response received from the model")
                          st.stop()
+
                     assistant_content = [{"text": response}]
                     st.session_state.messages.append({"role": "assistant", "content": assistant_content})
 
@@ -422,6 +464,6 @@ def main():
                 finally:
                     st.session_state.allow_input = True
                     st.rerun()
-            
+
 if __name__ == "__main__":
     main()
