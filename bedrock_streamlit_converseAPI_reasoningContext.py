@@ -1,3 +1,7 @@
+"""
+The codes below ignore the reasoning part of the response from the model Claude3.7 for historical conversations.
+"""
+
 import os
 import json
 import base64
