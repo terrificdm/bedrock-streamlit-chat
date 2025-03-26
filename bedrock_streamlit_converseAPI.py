@@ -4,9 +4,10 @@ import base64
 import logging
 import boto3
 import streamlit as st
+import re
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from botocore.exceptions import ClientError, NoCredentialsError
 
 
@@ -38,9 +39,13 @@ class ModelConfig:
     enable_reasoning: bool = False
 
 def initialize_session_state():
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Initialize chat history for display 
+    if "display_messages" not in st.session_state:
+        st.session_state.display_messages = []
+
+    # Initialize chat history for model interaction
+    if "model_messages" not in st.session_state:
+        st.session_state.model_messages = []
 
     if "file_uploader_key" not in st.session_state:
         st.session_state.file_uploader_key = 0
@@ -48,12 +53,23 @@ def initialize_session_state():
     # Initialize image track recorder
     if "file_update" not in st.session_state:
         st.session_state.file_update = False
-        
+
     if "allow_input" not in st.session_state:
         st.session_state.allow_input = True
 
     if "enable_reasoning" not in st.session_state:
         st.session_state.enable_reasoning = False
+
+    if "current_model_id" not in st.session_state:
+        st.session_state.current_model_id = "Anthropic Claude-3.7-Sonnet"
+
+def reset_app():
+    st.session_state.display_messages = []
+    st.session_state.model_messages = []
+    st.session_state["file_uploader_key"] += 1
+    st.session_state.file_update = False
+    st.session_state.allow_input = True
+    st.rerun()
 
 def check_file_size(file, file_type):
     """
@@ -82,7 +98,7 @@ def allow_input_disable():
 def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
     inference_config = {"maxTokens": config.max_tokens,}
     additional_model_fields = {}
-    
+
     if config.enable_reasoning and "claude-3-7-sonnet" in config.model_id:
         additional_model_fields = {
             "thinking": {
@@ -97,7 +113,7 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
             inference_config["topP"] = config.top_p
         if "nova" in config.model_id:
             additional_model_fields = {"inferenceConfig": {"top_k": config.top_k}} 
-        else:
+        elif "deepseek" not in config.model_id:
             additional_model_fields = {"top_k": config.top_k}
 
     try:
@@ -110,26 +126,51 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
         )
 
         in_reasoning_block = False
-        
+        actual_response_text = ""  # actual response text (excluding reasoning part)
+        reasoning_response_text= ""  # reasoning response text
+        reasoning_redacted_content = b''
+        signature_response_text = ""
+        assistant_content = []
+
+
         for chunk in response["stream"]:
             if "contentBlockDelta" not in chunk:
                 continue
 
             delta = chunk["contentBlockDelta"]["delta"]
-    
-            if "reasoningContent" in delta and "text" in delta["reasoningContent"]:
-                reasoning_text = delta["reasoningContent"]["text"]
-                if not in_reasoning_block:
-                    yield "----------------\n"
-                    in_reasoning_block = True
-                yield reasoning_text
+
+            if "reasoningContent" in delta:
+                if "text" in delta["reasoningContent"]:
+                    reasoning_text = delta["reasoningContent"]["text"]
+                    reasoning_response_text += reasoning_text  # Collect reasoning response text
+                    if not in_reasoning_block:
+                        yield "----------------\n"
+                        in_reasoning_block = True
+                    yield reasoning_text
+                if "redactedContent" in delta["reasoningContent"]:
+                    redacted_content = delta["reasoningContent"]["redactedContent"]
+                    reasoning_redacted_content += redacted_content
+                if "signature" in delta["reasoningContent"]:
+                    signature = delta["reasoningContent"]["signature"]
+                    signature_response_text += signature
 
             elif "text" in delta:
                 text = delta["text"]
+                actual_response_text += text  # Collect actual response text without reasoning part
+
                 if in_reasoning_block:
                     yield "\n\n----------------\n"
                     in_reasoning_block = False
                 yield text
+        
+        if reasoning_response_text and signature_response_text:
+            assistant_content.append({"reasoningContent": {"reasoningText": {"text": reasoning_response_text, "signature": signature_response_text}}})
+        if reasoning_redacted_content:
+            assistant_content.append({"reasoningContent": {"redactedContent": reasoning_redacted_content}})
+        if actual_response_text:
+            assistant_content.append({"text": actual_response_text})
+
+        st.session_state.model_messages.append({"role": "assistant", "content": assistant_content})
 
     except (ClientError, Exception) as e:
         logger.error(f"ERROR: Can't invoke '{config.model_id}'. Reason: {e}")
@@ -179,15 +220,27 @@ def main():
         with col2:
             st.title("Bedrock-Streamlit-Chat")
 
-        model_id = st.selectbox('Choose a Model', ('Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3.5-Sonnet-v2','Anthropic Claude-3.7-Sonnet'), index=4, label_visibility="collapsed")
+        new_model_id = st.selectbox(
+            'Choose a Model', (
+                'Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3.5-Sonnet-v2', 
+                'Anthropic Claude-3.7-Sonnet', 'DeepSeek-R1'
+            ), 
+            index=4, 
+            label_visibility="collapsed"
+        )
+
+        if new_model_id != st.session_state.current_model_id:
+            st.session_state.current_model_id = new_model_id
+            reset_app()
+
         model_id = {
             'Amazon Nova Lite': 'us.amazon.nova-lite-v1:0',
             'Amazon Nova Pro': 'us.amazon.nova-pro-v1:0',
             'Anthropic Claude-3-Haiku': 'us.anthropic.claude-3-haiku-20240307-v1:0',
             'Anthropic Claude-3.5-Sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
             'Anthropic Claude-3.7-Sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-            
-        }.get(model_id, model_id)
+            'DeepSeek-R1': 'us.deepseek.r1-v1:0'
+            }.get(new_model_id, new_model_id)
 
         is_claude_37 = "claude-3-7-sonnet" in model_id
         if is_claude_37:
@@ -206,7 +259,7 @@ def main():
         with st.expander('AWS Credentials', expanded=False):
             aws_access_key = st.text_input('AWS Access Key', os.environ.get('AWS_ACCESS_KEY_ID', ""), type="password")
             aws_secret_key = st.text_input('AWS Secret Key', os.environ.get('AWS_SECRET_ACCESS_KEY', ""), type="password")
-            
+
             credentials_changed = (
                 aws_access_key != os.environ.get('AWS_ACCESS_KEY_ID', "") or
                 aws_secret_key != os.environ.get('AWS_SECRET_ACCESS_KEY', "")
@@ -233,9 +286,11 @@ def main():
 
             max_new_tokens= st.number_input(
                 min_value=100,
-                max_value=65536 if "claude-3-7-sonnet" in model_id else 4096,
+                max_value=(65536 if "claude-3-7-sonnet" in model_id 
+                           else 32768 if "deepseek" in model_id
+                           else 4096),
                 step=10,
-                value=16384 if "claude-3-7-sonnet" in model_id else 4096,
+                value=16384 if ("claude-3-7-sonnet" in model_id or "deepseek" in model_id) else 4096,
                 label="Number of tokens to output",
                 key="max_new_token"
             )
@@ -278,13 +333,13 @@ def main():
                     max_value=max_top_k,
                     step=1,
                     value=max_top_k // 2,
-                    label="Top K" + (" (disabled in reasoning mode)" if params_disabled else ""),
+                    label="Top K" + (" (disabled in reasoning mode)" if params_disabled or "deepseek" in model_id else ""),
                     key="top_k",
-                    disabled=params_disabled
+                    disabled=params_disabled or "deepseek" in model_id
                 )
-            
+
         if "claude-3" in model_id or "nova" in model_id:
-            file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support Cluade nad Nova models', disabled=False)
+            file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support Cluade nad Nova model', disabled=False)
             file_list = []
 
             for item in file:
@@ -295,7 +350,7 @@ def main():
                 if not is_valid_size:
                     st.error(error_message)
                     return None
-                
+
                 if item_type in image_types:
                     item_type = 'jpeg' if item_type == 'jpg' else item_type
                     st.image(item, caption=item.name)
@@ -313,21 +368,17 @@ def main():
                     st.write(f"Unsupported file type: {item_type}, please remove the file!")
                     return None
         else:
-            file = st.file_uploader("File Query", help='Claude-V3 only', disabled=True)
-    
+            file = st.file_uploader("File Query", help='Claude and Nova model only', disabled=True)
+
         # Clear messages, including uploaded images
         if st.sidebar.button("New Conversation", type="primary"):
-            st.session_state.messages = []
-            st.session_state.allow_input = True
-            st.empty()
-            st.session_state["file_uploader_key"] += 1
-            st.rerun()
+            reset_app()
 
     with st.chat_message("assistant", avatar="./utils/assistant.png"):
-        st.write("I am an AI chatbot powered by Amazon Bedrock Claude, what can I do for you？💬")
+        st.write("I am an AI chatbot powered by Amazon Bedrock, what can I do for you？💬")
 
     # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
+    for message in st.session_state.display_messages:
         if message["role"] == "assistant":
             with st.chat_message(message["role"], avatar="./utils/assistant.png"):
                 st.markdown(message["content"][0]["text"])
@@ -372,23 +423,28 @@ def main():
                 user_content = file_list
             st.session_state.file_update = False
             st.markdown(query)
+            
         # Add user message to chat history
         user_content.append({"text": query})
-        st.session_state.messages.append({"role": "user", "content": user_content})
+        user_message = {"role": "user", "content": user_content}
+        st.session_state.display_messages.append(user_message)
+        st.session_state.model_messages.append(user_message)
+
         # Display assistant response in chat message container
         with st.chat_message("assistant", avatar="./utils/assistant.png"):
             system_message = system_prompt
-            messages = st.session_state.messages
+
+            model_messages = st.session_state.model_messages
 
             model_config = ModelConfig(
                 model_id=model_id,
                 system_message=system_message,
-                messages=messages,
+                messages=model_messages,  # Use model_messages without reasoning part
                 max_tokens=max_new_tokens,
                 budget_tokens=budget_tokens,
                 temperature=temperature if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
                 top_p=top_p if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
-                top_k=top_k if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
+                top_k=top_k if not ((st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) or "deepseek" in model_id) else None,
                 enable_reasoning=st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id
             )
 
@@ -396,17 +452,22 @@ def main():
                 aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID', ""), 
                 aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY', ""), 
                 aws_region=os.environ.get('AWS_REGION', ""))
-            
+
             with st.spinner('Thinking...'):
                 try:
-                    response= st.write_stream(
-                        stream_multi_modal_prompt(bedrock_runtime, model_config)
+
+                    response = st.write_stream(
+                        stream_multi_modal_prompt(
+                            bedrock_runtime, model_config
+                        )
                     )
+
                     if not response:
                          st.error("No response received from the model")
                          st.stop()
+
                     assistant_content = [{"text": response}]
-                    st.session_state.messages.append({"role": "assistant", "content": assistant_content})
+                    st.session_state.display_messages.append({"role": "assistant", "content": assistant_content})
 
                 except ClientError as err:
                     message = err.response["Error"]["Message"]
@@ -422,6 +483,6 @@ def main():
                 finally:
                     st.session_state.allow_input = True
                     st.rerun()
-            
+
 if __name__ == "__main__":
     main()
