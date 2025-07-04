@@ -99,7 +99,7 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
     inference_config = {"maxTokens": config.max_tokens,}
     additional_model_fields = {}
 
-    if config.enable_reasoning and "claude-3-7-sonnet" in config.model_id:
+    if config.enable_reasoning:
         additional_model_fields = {
             "thinking": {
                 "type": "enabled",
@@ -223,9 +223,9 @@ def main():
         new_model_id = st.selectbox(
             'Choose a Model', (
                 'Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3.5-Sonnet-v2', 
-                'Anthropic Claude-3.7-Sonnet', 'DeepSeek-R1'
+                'Anthropic Claude-3.7-Sonnet', 'Anthropic Claude-4-Sonnet', 'DeepSeek-R1'
             ), 
-            index=4, 
+            index=5, 
             label_visibility="collapsed"
         )
 
@@ -239,11 +239,12 @@ def main():
             'Anthropic Claude-3-Haiku': 'us.anthropic.claude-3-haiku-20240307-v1:0',
             'Anthropic Claude-3.5-Sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
             'Anthropic Claude-3.7-Sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+            'Anthropic Claude-4-Sonnet': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
             'DeepSeek-R1': 'us.deepseek.r1-v1:0'
             }.get(new_model_id, new_model_id)
 
-        is_claude_37 = "claude-3-7-sonnet" in model_id
-        if is_claude_37:
+        claude_37_4 = "claude-3-7-sonnet" in model_id or "claude-sonnet-4" in model_id
+        if claude_37_4:
             st.session_state.enable_reasoning = st.toggle("Reasoning Mode", value=st.session_state.enable_reasoning, 
                                                           help="Enable Claude's reasoning capability (only available for Claude-3.7-Sonnet)")
         else:
@@ -282,15 +283,15 @@ def main():
             )
 
         with st.expander('Model Parameters', expanded=False):
-            params_disabled = st.session_state.enable_reasoning and is_claude_37
+            params_disabled = st.session_state.enable_reasoning
 
             max_new_tokens= st.number_input(
                 min_value=100,
-                max_value=(65536 if "claude-3-7-sonnet" in model_id 
+                max_value=(65536 if claude_37_4
                            else 32768 if "deepseek" in model_id
                            else 4096),
                 step=10,
-                value=16384 if ("claude-3-7-sonnet" in model_id or "deepseek" in model_id) else 4096,
+                value=16384 if claude_37_4 or ("deepseek" in model_id) else 4096,
                 label="Number of tokens to output",
                 key="max_new_token"
             )
@@ -304,8 +305,6 @@ def main():
                 key="budget_tokens",
                 disabled=not params_disabled
             )
-
-            params_disabled = st.session_state.enable_reasoning and is_claude_37
 
             col1, col2 = st.columns([4,1])
             with col1:
@@ -338,7 +337,7 @@ def main():
                     disabled=params_disabled or "deepseek" in model_id
                 )
 
-        if "claude-3" in model_id or "nova" in model_id:
+        if "claude" in model_id or "nova" in model_id:
             file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support Cluade nad Nova model', disabled=False)
             file_list = []
 
@@ -442,10 +441,10 @@ def main():
                 messages=model_messages,  # Use model_messages without reasoning part
                 max_tokens=max_new_tokens,
                 budget_tokens=budget_tokens,
-                temperature=temperature if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
-                top_p=top_p if not (st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) else None,
-                top_k=top_k if not ((st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id) or "deepseek" in model_id) else None,
-                enable_reasoning=st.session_state.enable_reasoning and "claude-3-7-sonnet" in model_id
+                temperature=temperature if not st.session_state.enable_reasoning else None,
+                top_p=top_p if not st.session_state.enable_reasoning else None,
+                top_k=top_k if not (st.session_state.enable_reasoning or "deepseek" in model_id) else None,
+                enable_reasoning=st.session_state.enable_reasoning
             )
 
             bedrock_runtime = get_bedrock_runtime_client(
