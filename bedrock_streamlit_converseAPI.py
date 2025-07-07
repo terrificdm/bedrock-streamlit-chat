@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 from botocore.exceptions import ClientError, NoCredentialsError
+from config_manager import ConfigManager, ModelInfo
 
 
 logger = logging.getLogger(__name__)
@@ -18,13 +19,8 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-image_types = {'gif', 'jpg', 'jpeg', 'png', 'webp'}
-document_types = {'pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'html', 'txt', 'md'}
-video_types = {'mov', 'mkv', 'mp4', 'webm', 'flv', 'mpeg', 'mpg', 'wmv', 'three_gp'}
-
-video_size_limit = 25 * 1024 * 1024  # 25MB
-document_size_limit = 4.5 * 1024 * 1024  # 4.5MB 
-image_size_limit = 4.5 * 1024 * 1024  # 4.5MB
+# Initialize configuration manager
+config_manager = ConfigManager()
 
 @dataclass
 class ModelConfig:
@@ -61,7 +57,7 @@ def initialize_session_state():
         st.session_state.enable_reasoning = False
 
     if "current_model_id" not in st.session_state:
-        st.session_state.current_model_id = "Anthropic Claude-3.7-Sonnet"
+        st.session_state.current_model_id = config_manager.get_default_model()
 
 def reset_app():
     st.session_state.display_messages = []
@@ -77,16 +73,15 @@ def check_file_size(file, file_type):
     Returns (is_valid, message)
     """
     file_size = len(file.getvalue())
-
-    if file_type in image_types:
-        if file_size > image_size_limit:
-            return False, f"Image file '{file.name}' exceeds 4.5MB per file limit"
-    elif file_type in document_types:
-        if file_size > document_size_limit:
-            return False, f"Document file '{file.name}' exceeds 4.5MB per file limit"
-    elif file_type in video_types:
-        if file_size > video_size_limit:
-            return False, f"Video file '{file.name}' exceeds 25MB per file limit"
+    file_types = config_manager.get_file_types_by_category()
+    
+    for category, types in file_types.items():
+        if file_type in types:
+            file_config = config_manager.get_file_config(category)
+            if file_size > file_config.size_limit:
+                size_mb = file_config.size_limit / (1024 * 1024)
+                return False, f"{category.title()} file '{file.name}' exceeds {size_mb:.1f}MB limit"
+    
     return True, ""
 
 def file_update():
@@ -95,7 +90,7 @@ def file_update():
 def allow_input_disable():
     st.session_state.allow_input = False
 
-def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
+def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig, model_info: ModelInfo):
     inference_config = {"maxTokens": config.max_tokens,}
     additional_model_fields = {}
 
@@ -111,9 +106,9 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig):
             inference_config["temperature"] = config.temperature
         if config.top_p is not None:
             inference_config["topP"] = config.top_p
-        if "nova" in config.model_id:
+        if model_info.model_family == "nova":
             additional_model_fields = {"inferenceConfig": {"top_k": config.top_k}} 
-        elif "deepseek" not in config.model_id:
+        elif model_info.supports_top_k:
             additional_model_fields = {"top_k": config.top_k}
 
     try:
@@ -220,12 +215,14 @@ def main():
         with col2:
             st.title("Bedrock-Streamlit-Chat")
 
+        model_names = config_manager.get_all_model_names()
+        default_model = config_manager.get_default_model()
+        default_index = model_names.index(default_model) if default_model in model_names else 0
+        
         new_model_id = st.selectbox(
-            'Choose a Model', (
-                'Amazon Nova Lite', 'Amazon Nova Pro', 'Anthropic Claude-3-Haiku', 'Anthropic Claude-3.5-Sonnet-v2', 
-                'Anthropic Claude-3.7-Sonnet', 'Anthropic Claude-4-Sonnet', 'DeepSeek-R1'
-            ), 
-            index=5, 
+            'Choose a Model',
+            model_names,
+            index=default_index,
             label_visibility="collapsed"
         )
 
@@ -233,24 +230,19 @@ def main():
             st.session_state.current_model_id = new_model_id
             reset_app()
 
-        model_id = {
-            'Amazon Nova Lite': 'us.amazon.nova-lite-v1:0',
-            'Amazon Nova Pro': 'us.amazon.nova-pro-v1:0',
-            'Anthropic Claude-3-Haiku': 'us.anthropic.claude-3-haiku-20240307-v1:0',
-            'Anthropic Claude-3.5-Sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-            'Anthropic Claude-3.7-Sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-            'Anthropic Claude-4-Sonnet': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-            'DeepSeek-R1': 'us.deepseek.r1-v1:0'
-            }.get(new_model_id, new_model_id)
+        model_info = config_manager.get_model_info(new_model_id)
+        model_id = model_info.model_id
 
-        claude_37_4 = "claude-3-7-sonnet" in model_id or "claude-sonnet-4" in model_id
-        if claude_37_4:
+        if model_info.supports_reasoning:
             st.session_state.enable_reasoning = st.toggle("Reasoning Mode", value=st.session_state.enable_reasoning, 
-                                                          help="Enable Claude's reasoning capability (only available for Claude-3.7-Sonnet)")
+                                                          help="Enable Claude's reasoning capability")
         else:
             st.session_state.enable_reasoning = False
 
-        aws_region = st.selectbox('Choose a Region', ('us-east-1', 'us-east-2','us-west-2'), index=0, label_visibility="collapsed")
+        regions = config_manager.get_regions()
+        default_region = config_manager.get_default_region()
+        default_region_index = regions.index(default_region) if default_region in regions else 0
+        aws_region = st.selectbox('Choose a Region', regions, index=default_region_index, label_visibility="collapsed")
         if aws_region:
             os.environ['AWS_REGION'] = aws_region
         else:
@@ -285,26 +277,27 @@ def main():
         with st.expander('Model Parameters', expanded=False):
             params_disabled = st.session_state.enable_reasoning
 
-            max_new_tokens= st.number_input(
+            max_new_tokens = st.number_input(
                 min_value=100,
-                max_value=(65536 if claude_37_4
-                           else 32768 if "deepseek" in model_id
-                           else 4096),
+                max_value=model_info.max_tokens,
                 step=10,
-                value=16384 if claude_37_4 or ("deepseek" in model_id) else 4096,
+                value=min(16384, model_info.max_tokens),
                 label="Number of tokens to output",
                 key="max_new_token"
             )
 
-            budget_tokens= st.number_input(
-                min_value=1024,
-                max_value=65536,
-                step=10,
-                value=4096,
-                label="Number of tokens to think" + (" (disabled in non-reasoning mode)" if not params_disabled else ""),
-                key="budget_tokens",
-                disabled=not params_disabled
-            )
+            if model_info.supports_reasoning:
+                budget_tokens = st.number_input(
+                    min_value=1024,
+                    max_value=65536,
+                    step=10,
+                    value=4096,
+                    label="Number of tokens to think" + (" (disabled in non-reasoning mode)" if not params_disabled else ""),
+                    key="budget_tokens",
+                    disabled=not params_disabled
+                )
+            else:
+                budget_tokens = None
 
             col1, col2 = st.columns([4,1])
             with col1:
@@ -326,20 +319,23 @@ def main():
                     key="top_p",
                     disabled=params_disabled
                 )
-                max_top_k = 128 if "nova" in model_id else 500
-                top_k = st.slider(
-                    min_value=0,
-                    max_value=max_top_k,
-                    step=1,
-                    value=max_top_k // 2,
-                    label="Top K" + (" (disabled in reasoning mode)" if params_disabled or "deepseek" in model_id else ""),
-                    key="top_k",
-                    disabled=params_disabled or "deepseek" in model_id
-                )
+                if model_info.supports_top_k:
+                    top_k = st.slider(
+                        min_value=0,
+                        max_value=model_info.top_k_max,
+                        step=1,
+                        value=model_info.top_k_max // 2,
+                        label="Top K" + (" (disabled in reasoning mode)" if params_disabled else ""),
+                        key="top_k",
+                        disabled=params_disabled
+                    )
+                else:
+                    top_k = None
 
-        if "claude" in model_id or "nova" in model_id:
-            file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support Cluade nad Nova model', disabled=False)
+        if model_info.supports_multimodal:
+            file = st.file_uploader("File Query", accept_multiple_files=True, key=st.session_state["file_uploader_key"], on_change=file_update, help='Support multimodal models', disabled=False)
             file_list = []
+            file_types = config_manager.get_file_types_by_category()
 
             for item in file:
                 item_type = item.name.split('.')[-1].lower()
@@ -350,24 +346,24 @@ def main():
                     st.error(error_message)
                     return None
 
-                if item_type in image_types:
+                if item_type in file_types["image"]:
                     item_type = 'jpeg' if item_type == 'jpg' else item_type
                     st.image(item, caption=item.name)
                     file_list.append({"image": {"format": item_type, "source": {"bytes": item.getvalue()}}})
-                elif item_type in document_types:
+                elif item_type in file_types["document"]:
                     file_list.append({"document": {"format": item_type, "name": item.name.split(".")[0], "source": {"bytes": item.getvalue()}}})
-                elif item_type in video_types:
-                    if "nova" in model_id:
+                elif item_type in file_types["video"]:
+                    if model_info.supports_video:
                         st.video(item)
                         file_list.append({"video": {"format": item_type, "source": {"bytes": item.getvalue()}}})
                     else:
-                        st.error(f"Video files are only supported by Nova series models. Please remove {item.name}")
+                        st.error(f"Video files are only supported by models that support video. Please remove {item.name}")
                         return None
                 else:
                     st.write(f"Unsupported file type: {item_type}, please remove the file!")
                     return None
         else:
-            file = st.file_uploader("File Query", help='Claude and Nova model only', disabled=True)
+            file = st.file_uploader("File Query", help='Multimodal models only', disabled=True)
 
         # Clear messages, including uploaded images
         if st.sidebar.button("New Conversation", type="primary"):
@@ -405,11 +401,12 @@ def main():
         with st.chat_message("user", avatar="./utils/user.png"):
             user_content = []
             if st.session_state.file_update:
+                file_types = config_manager.get_file_types_by_category()
                 for item in file:
                     item_type = item.name.split('.')[-1].lower()
-                    if item_type in image_types:
+                    if item_type in file_types["image"]:
                         st.image(item, width=50)
-                    elif item_type in video_types:
+                    elif item_type in file_types["video"]:
                         col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
                         with col1:
                             st.video(item)
@@ -443,7 +440,7 @@ def main():
                 budget_tokens=budget_tokens,
                 temperature=temperature if not st.session_state.enable_reasoning else None,
                 top_p=top_p if not st.session_state.enable_reasoning else None,
-                top_k=top_k if not (st.session_state.enable_reasoning or "deepseek" in model_id) else None,
+                top_k=top_k if not st.session_state.enable_reasoning and model_info.supports_top_k else None,
                 enable_reasoning=st.session_state.enable_reasoning
             )
 
@@ -457,7 +454,7 @@ def main():
 
                     response = st.write_stream(
                         stream_multi_modal_prompt(
-                            bedrock_runtime, model_config
+                            bedrock_runtime, model_config, model_info
                         )
                     )
 
