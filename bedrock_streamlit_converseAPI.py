@@ -95,16 +95,19 @@ def stream_multi_modal_prompt(bedrock_runtime, config: ModelConfig, model_info: 
     additional_model_fields = {}
 
     if config.enable_reasoning:
-        additional_model_fields = {
-            "thinking": {
-                "type": "enabled",
-                "budget_tokens": config.budget_tokens
+        if model_info.model_family == "claude":
+            additional_model_fields = {
+                "thinking": {
+                    "type": "enabled",
+                    "budget_tokens": config.budget_tokens
+                }
             }
-        }
+        elif model_info.model_family == "qwen":
+            additional_model_fields = {"reasoning_config": "high"}
     else:
         if config.temperature is not None:
             inference_config["temperature"] = config.temperature
-        if config.top_p is not None:
+        if config.top_p is not None and model_info.supports_top_p:
             inference_config["topP"] = config.top_p
         if model_info.model_family == "nova":
             additional_model_fields = {"inferenceConfig": {"top_k": config.top_k}} 
@@ -235,7 +238,7 @@ def main():
 
         if model_info.supports_reasoning:
             st.session_state.enable_reasoning = st.toggle("Reasoning Mode", value=st.session_state.enable_reasoning, 
-                                                          help="Enable Claude's reasoning capability")
+                                                          help="Enable model's reasoning capability")
         else:
             st.session_state.enable_reasoning = False
 
@@ -286,7 +289,7 @@ def main():
                 key="max_new_token"
             )
 
-            if model_info.supports_reasoning:
+            if model_info.supports_reasoning and model_info.model_family == "claude":
                 budget_tokens = st.number_input(
                     min_value=1024,
                     max_value=65536,
@@ -310,14 +313,20 @@ def main():
                     key="temperature",
                     disabled=params_disabled
                 )
+                top_p_disabled = params_disabled or not model_info.supports_top_p
+                top_p_label = "Top P"
+                if params_disabled:
+                    top_p_label += " (disabled in reasoning mode)"
+                elif not model_info.supports_top_p:
+                    top_p_label += " (not supported by this model)"
                 top_p = st.slider(
                     min_value=0.0,
                     max_value=1.0,
                     step=0.1,
                     value=1.0,
-                    label="Top P" + (" (disabled in reasoning mode)" if params_disabled else ""),
+                    label=top_p_label,
                     key="top_p",
-                    disabled=params_disabled
+                    disabled=top_p_disabled
                 )
                 if model_info.supports_top_k:
                     top_k = st.slider(
@@ -351,7 +360,7 @@ def main():
                     st.image(item, caption=item.name)
                     file_list.append({"image": {"format": item_type, "source": {"bytes": item.getvalue()}}})
                 elif item_type in file_types["document"]:
-                    file_list.append({"document": {"format": item_type, "name": item.name.split(".")[0], "source": {"bytes": item.getvalue()}}})
+                    file_list.append({"document": {"format": item_type, "name": item.name.split(".")[0], "source": {"bytes": item.getvalue()},  "citations": {"enabled": True}}})
                 elif item_type in file_types["video"]:
                     if model_info.supports_video:
                         st.video(item)
@@ -439,7 +448,7 @@ def main():
                 max_tokens=max_new_tokens,
                 budget_tokens=budget_tokens,
                 temperature=temperature if not st.session_state.enable_reasoning else None,
-                top_p=top_p if not st.session_state.enable_reasoning else None,
+                top_p=top_p if not st.session_state.enable_reasoning and model_info.supports_top_p else None,
                 top_k=top_k if not st.session_state.enable_reasoning and model_info.supports_top_k else None,
                 enable_reasoning=st.session_state.enable_reasoning
             )

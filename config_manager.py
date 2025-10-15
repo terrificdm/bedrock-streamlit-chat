@@ -12,6 +12,7 @@ class ModelInfo:
     top_k_max: int
     model_family: str
     supports_top_k: bool = True
+    supports_top_p: bool = True
 
 @dataclass
 class FileTypeConfig:
